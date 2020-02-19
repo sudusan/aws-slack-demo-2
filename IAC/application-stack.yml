@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: delcamweb template with nested stacks
+Description: myapp template with nested stacks
 Parameters:
   NestedTemplateBucket:
     Type: String
   Application:
     Type: String
-    Default: delcamweb
+    Default: myapp
   Environment:
     Type: String
     Default: PRD
@@ -49,6 +49,7 @@ Resources:
     Properties:
       Parameters:
         Application: !Ref Application
+        Environment: !Ref Environment
         AMI: !Ref AMI
         EC2SubnetA: !Ref EC2SubnetA
         EC2SubnetB: !Ref EC2SubnetB
