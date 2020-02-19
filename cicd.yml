@@ -29,6 +29,10 @@ Parameters:
   Description: 'S3 source artifact'
   Type: String
   Default: sudusan/aws-slack-demo-2/master/sudusan_aws-slack-demo-2.zip 
+ SourceObjectKeyProd:
+  Description: 'S3 source artifact for production'
+  Type: String
+  Default: master/bundle.zip
  ApplicationName:
   Description: 'Name of application'
   Type: String
@@ -118,6 +122,7 @@ Resources:
             SSEAlgorithm: AES256
   UnzipCfnTemplate:
     Type: AWS::Lambda::Function
+    Condition: STGEnvironment
     Properties:
       Description: This unzips the file into the same bucket.
       Handler: index.lambda_handler
@@ -133,6 +138,57 @@ Resources:
         Variables:
           TEMPLATE_BUCKET: !Ref 'OutputBucket'
           TEMPLATE_BUCKET_KEY: !Ref 'SourceObjectKey'
+          TARGET_TEMPLATE_BUCKET: !Ref 'NestedTemplateS3Bucket'
+      Code:
+        ZipFile: |
+          import urllib
+          import zipfile
+          import boto3
+          import io
+          import os
+          print('Loading function')
+          s3 = boto3.client('s3')
+          bucket = os.environ['TEMPLATE_BUCKET']
+          targetBucket = os.environ['TARGET_TEMPLATE_BUCKET']
+          def lambda_handler(event, context):
+          #key = urllib.unquote_plus(event['Records'][0]['s3']['object']['key'].encode('utf8'))
+            key = os.environ['TEMPLATE_BUCKET_KEY']
+            codepipeline = boto3.client('codepipeline')
+            try:
+              obj = s3.get_object(Bucket=bucket, Key=key)
+              putObjects = []
+              with io.BytesIO(obj["Body"].read()) as tf:
+              # rewind the file
+                tf.seek(0)
+                # Read the file as a zipfile and process the members
+                with zipfile.ZipFile(tf, mode='r') as zipf:
+                  for file in zipf.infolist():
+                    fileName = file.filename
+                    putFile = s3.put_object(Bucket=targetBucket, Key=fileName, Body=zipf.read(file))
+                    putObjects.append(putFile)
+                    print(putFile)
+                    print('success')
+              return codepipeline.put_job_success_result(jobId=event["CodePipeline.job"]["id"], currentRevision={'revision':'1', 'changeIdentifier':'1'})
+            except:
+              return codepipeline.put_job_failure_result(jobId=event["CodePipeline.job"]["id"], failureDetails={'type':'JobFailed','message':'This code failed to complete successfully'})
+  UnzipCfnTemplateProd:
+    Type: AWS::Lambda::Function
+    Condition: NotSTGEnvironment
+    Properties:
+      Description: This unzips the file into the same bucket.
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaServiceRole.Arn
+      Runtime: python3.7
+      Tags:
+        - Key: ApplicationName
+          Value: !Ref ApplicationName
+        - Key: EnvironmentClass
+          Value: !Ref EnvironmentClass
+      Timeout: 60
+      Environment:
+        Variables:
+          TEMPLATE_BUCKET: !Ref 'OutputBucket'
+          TEMPLATE_BUCKET_KEY: !Ref 'SourceObjectKeyProd'
           TARGET_TEMPLATE_BUCKET: !Ref 'NestedTemplateS3Bucket'
       Code:
         ZipFile: |
@@ -446,6 +502,7 @@ Resources:
     Type: AWS::IAM::Role
   GitPullLambda:
     DependsOn: CopyZips
+    Condition: STGEnvironment
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: lambda_function.lambda_handler
@@ -1429,7 +1486,7 @@ Resources:
             - Name: SourceOutput
           Configuration:
             S3Bucket: !Ref CodePipelineArtifactStoreBucket
-            S3ObjectKey: !Ref SourceObjectKey
+            S3ObjectKey: !Ref SourceObjectKeyProd
             PollForSourceChanges: true
           RunOrder: 1
       -
@@ -1461,7 +1518,7 @@ Resources:
             Version: "1"
             Provider: Lambda
           Configuration:
-            FunctionName: !Ref UnzipCfnTemplate
+            FunctionName: !Ref UnzipCfnTemplateProd
           RunOrder: 3
       -
         Name: Approval
