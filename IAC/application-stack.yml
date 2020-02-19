@@ -6,6 +6,8 @@ Parameters:
   Application:
     Type: String
     Default: myapp
+  BucketSuffix:
+    Type: String
   Environment:
     Type: String
     Default: PRD
@@ -50,6 +52,7 @@ Resources:
       Parameters:
         Application: !Ref Application
         Environment: !Ref Environment
+        BucketSuffix: !Ref BucketSuffix
         AMI: !Ref AMI
         EC2SubnetA: !Ref EC2SubnetA
         EC2SubnetB: !Ref EC2SubnetB

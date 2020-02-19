@@ -12,6 +12,7 @@
         "InternalCorporateCidrIp" : "0.0.0.0/0",
         "KeyName" :	"isen2-east1-kp",
         "SNSEndpoint" :	"mihira@yahoo.com",
-        "VpcId" : "vpc-ed780097"
+        "VpcId" : "vpc-ed780097",
+        "BucketSuffix": "stg"
     }
 }

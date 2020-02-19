@@ -9,6 +9,8 @@ Parameters:
   Application:
     Type: String
     Default: slack-cicd-demo
+  BucketSuffix:
+    Type: String
   Environment:
     Type: String
     Default: STG
@@ -167,7 +169,7 @@ Resources:
         - ''
         - - !Ref Application
           - '-alb-logs-use1-'
-          - !Ref Environment
+          - !Ref BucketSuffix
     DeletionPolicy: Delete
 
   BucketPolicy:
