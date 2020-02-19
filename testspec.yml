@@ -1,0 +1,6 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - echo "Example TEST Command 1!"
+      - echo "Example TEST Command 2!"

@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Compute template for myapp server with ALB.
+
+Parameters: 
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  Application:
+    Type: String
+    Default: slack-cicd-demo
+  SNSEndpoint:
+    Type: String
+  VpcId:
+    Description: ID of an existing VPC
+    Type: String
+  EC2SubnetA:
+    Description: Subnet ID to deploy to
+    Type: String
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  EC2SubnetB:
+    Description: Subnet ID to deploy to
+    Type: String
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  LBSubnetIDA:
+    Description: Subnet ID to deploy to
+    Type: String
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  LBSubnetIDB:
+    Description: Subnet ID to deploy to
+    Type: String
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  InternalCorporateCidrIp:
+    Description: >-
+      Corporate internal CIDR (Used to limit ingress traffic only from the
+      corporate IP space)
+    Type: String
+    Default: 0.0.0.0/0
+  EC2InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.large
+    AllowedValues:
+    - t1.micro
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - m1.small
+    - m1.medium
+    - m1.large
+    - m1.xlarge
+    - m2.xlarge
+    - m2.2xlarge
+    - m2.4xlarge
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - m4.large
+    - m4.xlarge
+    - m4.2xlarge
+    - m4.4xlarge
+    - m4.10xlarge
+    - m5.large
+    - m5.xlarge
+    - c1.medium
+    - c1.xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - g2.2xlarge
+    - g2.8xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    - hs1.8xlarge
+    - cr1.8xlarge
+    - cc2.8xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+  AMI:
+    Description: Type the AMI id
+    Type: String
+  S3BucketName:
+    Description: S3 Bucket name to create for LB logging
+    Type: String
+    Default: slack-cicd-demo-alb-logs
+
+Resources: 
+  ApplicationEC2SG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: EC2 Server Security Group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref InternalCorporateCidrIp
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref InternalCorporateCidrIp
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref InternalCorporateCidrIp
+    
+  LBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: LB Security Group
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref InternalCorporateCidrIp
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref InternalCorporateCidrIp
+  
+  WebServerLaunchConfig01:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId:
+        Ref: AMI
+      InstanceType:
+        Ref: EC2InstanceType
+      SecurityGroups:
+      - Ref: ApplicationEC2SG
+      IamInstanceProfile:
+        Ref: SMInstanceProfile
+      KeyName:
+        Ref: KeyName
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#!/bin/bash\n"
+            - "yum update -y\n"
+            - "yum install -y httpd\n"
+            - "systemctl start httpd\n"
+            - "systemctl enable httpd\n"
+  ALBS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join 
+        - ''
+        - - !Ref Application
+          - '-alb-logs-use1'
+    DeletionPolicy: Delete
+
+  BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref ALBS3Bucket
+      PolicyDocument:
+        Statement:
+          - Sid: AWSConsoleStmt-805262168568
+            Effect: Allow
+            Principal:
+              AWS:
+                - '127311923021'
+            Action: 's3:PutObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref ALBS3Bucket
+                - /*
+
+  ApplicationLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Subnets:
+        - !Ref LBSubnetIDA
+        - !Ref LBSubnetIDB
+      SecurityGroups:
+        - !Ref LBSecurityGroup
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: routing.http2.enabled
+          Value: 'true'
+        - Key: access_logs.s3.enabled
+          Value: 'true'
+        - Key: access_logs.s3.bucket
+          Value: !Ref ALBS3Bucket
+  ALBListenerHTTP:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: "forward"
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  ALBTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthCheckPath: /wiki/index.php/Main_Page
+      HealthyThresholdCount: 3
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref VpcId
+
+  WebServerASG01:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: WebServerASG01
+      VPCZoneIdentifier:
+      - Ref: EC2SubnetA
+      - Ref: EC2SubnetB
+      DesiredCapacity: '1'
+      HealthCheckGracePeriod: 180
+      HealthCheckType: EC2
+      TargetGroupARNs:
+      - Ref: ALBTargetGroup
+      LaunchConfigurationName:
+        Ref: WebServerLaunchConfig01
+      MinSize: '1'
+      MaxSize: '1'
+      Tags:
+      - Key: Name
+        Value: myapp-prd-asg-1
+        PropagateAtLaunch: true
+      - Key: Backup
+        Value: Backup
+        PropagateAtLaunch: true
+      MetricsCollection:
+      - Granularity: 1Minute
+        Metrics:
+        - GroupTotalInstances
+        - GroupInServiceInstances
+        - GroupStandbyInstances
+        - GroupPendingInstances
+        - GroupTerminatingInstances
+        - GroupMaxSize
+        - GroupMinSize
+        - GroupDesiredCapacity
+      NotificationConfigurations:
+      - TopicARN:
+          Ref: SNSTopicEmail
+        NotificationTypes:
+        - autoscaling:EC2_INSTANCE_LAUNCH
+        - autoscaling:EC2_INSTANCE_LAUNCH_ERROR
+        - autoscaling:EC2_INSTANCE_TERMINATE
+        - autoscaling:EC2_INSTANCE_TERMINATE_ERROR
+  
+  SNSTopicEmail:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: 
+          Ref: SNSEndpoint
+        Protocol: email
+      TopicName: EC2-notification-UnixTeam
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: S3BucketName
+      VersioningConfiguration:
+        Status: Enabled
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3BucketName
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:PutObject
+          Effect: Allow
+          Resource:
+            Fn::Join:
+            - ''
+            - - 'arn:aws:s3:::'
+              - Ref: S3BucketName
+              - "/*"
+          Principal:
+            Service:
+            - delivery.logs.amazonaws.com
+  SMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: SMProfile
+      Path: "/"
+      Roles:
+      - Ref: SMRole
+  SMPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: SMPolicy
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action:
+          - secretsmanager:GetSecretValue
+          Resource: "*"
+      Roles:
+      - Ref: SMRole
+  SMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+
+Outputs:
+  EC2SecurityGroup: 
+    Description: Security Group of the main compute processing fleet. 
+    Value: !GetAtt ApplicationEC2SG.GroupId

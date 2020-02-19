@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: delcamweb template with nested stacks
+Parameters:
+  NestedTemplateBucket:
+    Type: String
+  Application:
+    Type: String
+    Default: delcamweb
+  Environment:
+    Type: String
+    Default: PRD
+    AllowedValues:
+    - PRD
+  AMI:
+    Type: String
+  InternalCorporateCidrIp:
+    Description: >-
+      Corporate internal CIDR (Used to limit ingress traffic only from the
+      corporate IP space)
+    Type: String
+    Default: 10.0.0.0/8
+    AllowedPattern: >-
+      ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]).){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(/([0-9]|[1-2][0-9]|3[0-2]))$
+  VpcId: 
+    Type: String
+  EC2SubnetA:
+    Type: String
+  EC2SubnetB:
+    Type: String
+  LBSubnetIDA:
+    Description: Subnet ID to deploy to
+    Type: AWS::EC2::Subnet::Id
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  LBSubnetIDB:
+    Description: Subnet ID to deploy to
+    Type: AWS::EC2::Subnet::Id
+    ConstraintDescription: must be the name of an existing subnet in a VPC.
+  SNSEndpoint:
+    Type: String
+  EC2InstanceType: 
+    Type: String
+  KeyName: 
+    Type: String
+
+Resources:
+  ComputeFleet:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Parameters:
+        Application: !Ref Application
+        AMI: !Ref AMI
+        EC2SubnetA: !Ref EC2SubnetA
+        EC2SubnetB: !Ref EC2SubnetB
+        LBSubnetIDA: !Ref LBSubnetIDA
+        LBSubnetIDB: !Ref LBSubnetIDB
+        EC2InstanceType: !Ref EC2InstanceType
+        KeyName: !Ref KeyName
+        VpcId: !Ref VpcId
+        SNSEndpoint: !Ref SNSEndpoint
+        InternalCorporateCidrIp: !Ref InternalCorporateCidrIp
+      Tags:
+        - Key: EnvironmentClass
+          Value: !Ref Environment    
+        - Key: ApplicationName
+          Value: !Ref Application  
+      TemplateURL: !Sub https://s3.amazonaws.com/${NestedTemplateBucket}/IAC/nested-templates/compute.yml

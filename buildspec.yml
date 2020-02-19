@@ -1,0 +1,10 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - pip install cfn-lint
+  build:
+    commands:
+      - find **/*.yml -not -name '*spec.yml' -not -name 'Reference*.yml' -exec cfn-lint {} \;
+      - aws cloudformation validate-template --template-body file://$(pwd)/IAC/application-stack.yml
