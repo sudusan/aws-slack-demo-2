@@ -9,6 +9,8 @@ Parameters:
   Application:
     Type: String
     Default: slack-cicd-demo
+  Environment:
+    Type: String
   SNSEndpoint:
     Type: String
   VpcId:
@@ -99,10 +101,6 @@ Parameters:
   AMI:
     Description: Type the AMI id
     Type: String
-  S3BucketName:
-    Description: S3 Bucket name to create for LB logging
-    Type: String
-    Default: slack-cicd-demo-alb-logs
 
 Resources: 
   ApplicationEC2SG:
@@ -167,7 +165,8 @@ Resources:
       BucketName: !Join 
         - ''
         - - !Ref Application
-          - '-alb-logs-use1'
+          - '-alb-logs-use1-'
+          - !Ref Environment
     DeletionPolicy: Delete
 
   BucketPolicy:
@@ -277,32 +276,6 @@ Resources:
           Ref: SNSEndpoint
         Protocol: email
       TopicName: EC2-notification-UnixTeam
-  S3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName:
-        Ref: S3BucketName
-      VersioningConfiguration:
-        Status: Enabled
-  S3BucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket:
-        Ref: S3BucketName
-      PolicyDocument:
-        Statement:
-        - Action:
-          - s3:PutObject
-          Effect: Allow
-          Resource:
-            Fn::Join:
-            - ''
-            - - 'arn:aws:s3:::'
-              - Ref: S3BucketName
-              - "/*"
-          Principal:
-            Service:
-            - delivery.logs.amazonaws.com
   SMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
