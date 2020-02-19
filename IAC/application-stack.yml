@@ -10,7 +10,8 @@ Parameters:
     Type: String
     Default: PRD
     AllowedValues:
-    - PRD
+      - PRD
+      - STG
   AMI:
     Type: String
   InternalCorporateCidrIp:
