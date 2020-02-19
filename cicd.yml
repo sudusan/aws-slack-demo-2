@@ -187,7 +187,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          TEMPLATE_BUCKET: !Ref 'OutputBucket'
+          TEMPLATE_BUCKET: !Ref 'CodePipelineArtifactStoreBucket'
           TEMPLATE_BUCKET_KEY: !Ref 'SourceObjectKeyProd'
           TARGET_TEMPLATE_BUCKET: !Ref 'NestedTemplateS3Bucket'
       Code:
