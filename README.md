@@ -1,6 +1,6 @@
 # aws-slack-demo-2
-demo for multi-stage deployment
-# please follow the following instructions to set-up multi-stage devops pipeline
+# instructions for multi-stage deployment
+  please follow the following instructions to set-up multi-stage devops pipeline
 # Step 1: Slack Set-up
 a. Go to api.slack.com/apps
 b. Select Create New App
