@@ -1888,3 +1888,14 @@ Outputs:
     Condition: STGEnvironment
     Value:
       Ref: CreateSSHKey
+  SlackHookApi:
+    Condition: NotSTGEnvironment
+    Value:
+      Fn::Join:
+      - ''
+      - - ' https://'
+        - Ref: InteractiveMessageApi
+        - .execute-api.
+        - Ref: AWS::Region
+        - .amazonaws.com
+        - /promote/interactivemessage
