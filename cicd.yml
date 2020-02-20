@@ -1812,7 +1812,7 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          SLACK_WEBHOOK_URL: !Ref 'SlackWebhookUrl'
+          SLACK_WEBHOOK_URL: '{{resolve:ssm:slack-demo-webhook-2:1}}'
           SLACK_CHANNEL: !Ref 'SlackChannel'
           STACK_NAME: !Join [ '-', [ !Ref ApplicationName, !Ref EnvironmentClass, 'Stack' ] ]
       #VpcConfig: #Specify for uploading within specific VPCs
