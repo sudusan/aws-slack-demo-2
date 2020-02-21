@@ -1,4 +1,4 @@
-# aws-slack-demo-2
+# aws-slack-demo-2 - 1
 # instructions for multi-stage deployment
   please follow the following instructions to set-up multi-stage devops pipeline
 # Step 1: Slack Set-up
